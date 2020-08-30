@@ -1,0 +1,117 @@
+import pandas
+from os import path
+import json
+import requests
+import datetime
+import pprint
+
+
+def fixerDataNow():
+    key = 'access_key=74a5e9d05c93c389033456829ca0bcfd'
+    endpoint = 'http://data.fixer.io/api/latest?' + key
+    today = datetime.datetime.now()
+    ymd = (str(today)).split(" ")[0]
+    file_name = f'./rates--{ymd}.json'
+
+    if path.exists(file_name):  # sa alegi sursa
+        file = open(file_name, 'r')
+        data = json.loads(file.read())
+    else:
+        response = requests.get(endpoint)
+        data = json.loads(response.text)
+        file = open(file_name, 'w')
+        file.write(response.text)
+        file.close()
+    return data
+
+
+def fixerDataHist(date):
+    sursa = f'http://data.fixer.io/api/{date}?access_key=74a5e9d05c93c389033456829ca0bcfd'
+    file_n = f'./rates--{date}.json'
+    if path.exists(file_n):
+        file_1 = open(file_n, 'r')
+        data_1 = json.loads(file_1.read())
+    else:
+        response_1 = requests.get(sursa)
+        data_1 = json.loads(response_1.text)
+        file_1 = open(file_n, 'w')
+        file_1.write(response_1.text)
+        file_1.close()
+    return data_1
+
+
+# 2 FUNCTII CARE CONTROLEAZA SATUS
+
+def convert(data, sum_val, curenta):
+    valuta_sum = sum_val.split(" ")
+    cov_sum = int(valuta_sum[0]) * data['rates'][curenta] / data['rates'][valuta_sum[1]]
+    return cov_sum
+
+
+def rateVD(data_1, valuta):
+    transformed_rates = {}
+    for code, rate in data_1['rates'].items():
+        transformed_rates[code] = {}
+        for code1, rate1 in data_1['rates'].items():
+            transformed_rates[code][code1] = data_1['rates'][code] / data_1['rates'][code1]
+    print(f'La data {data_1["date"]} Rata pentru valuta [{valuta}] este:')
+    pprint.pprint(transformed_rates[valuta])
+
+
+def histRates(data_start, data_end, valuta):
+    ################ Start DATE FORMAT ##############
+    dt_st = str(data_start).split("-")
+    yy_s, m_s, d_s = int(dt_st[0]), int(dt_st[1]), int(dt_st[2])
+    strart = datetime.datetime(yy_s, m_s, d_s)
+    ################ END DATE FORMAT ###############
+    dt_end = str(data_end).split("-")
+    yy_e, m_e, d_e = int(dt_end[0]), int(dt_end[1]), int(dt_end[2])
+    end = datetime.datetime(yy_e, m_e, d_e)
+    ############### Finishi #####################
+    ds = pandas.date_range(strart, end)
+
+    for i in ds:
+        date = str(i).split(" ")[0]
+        rateVD(fixerDataHist(date), valuta)
+
+
+
+def menu():
+    option = -1
+
+    while option != 0:
+
+        print("\n\n")
+
+        print("#" * 10, "MENU", "#" * 10)
+
+        print("1. Convertare")
+
+        print("2. Afisarea ratei pentru Data/Valuta")
+
+        print("3. Istoria ratelor")
+
+        print("0. Exit")
+
+        print("#" * 26)
+
+        option = int(input("Choose Option > "))
+
+        if option == 1:
+            sum_val = input("Introdu Suma: ")
+            curenta = input("Curenta: ")
+            print(convert(fixerDataNow(), sum_val, curenta))
+
+        if option == 2:
+            date = input('Introdu data in formatul - YYYY-MM-DD > ')
+            valuta = input('Introdu Valuta: ')
+            rateVD(fixerDataHist(date), valuta)
+
+        if option == 3:
+            date_start = input('Introdu data in formatul - YYYY-MM-DD > ')
+            date_end = input('Introdu data in formatul - YYYY-MM-DD > ')
+            valuta = input('Introdu Valuta: ')
+            histRates(date_start, date_end, valuta)
+
+
+menu()
